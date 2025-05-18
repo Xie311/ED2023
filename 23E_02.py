@@ -24,8 +24,8 @@ packet=None          # 接收题目序号
 position=None        # 发送点的坐标
 
 ROI = (0,0,160,120)
-threshold_red = [(62, 100, -19, 9, -5, 127)]    # 怎么这么亮呃
-threshold_green = [(100, 29, -26, -42, -4, 127)]
+threshold_red = [(0, 100, 127, 20, -15, 114)]
+threshold_green = [(76, 100, -26, 12, -17, 20)]
 
 def red_blob(img, threshold_red,ROI):
 
@@ -73,46 +73,20 @@ while(True):
 #            print("Receive Nub:",Nub)  # 打印接收到的题目序号
 
     img = sensor.snapshot()
-    #------------第三问，追踪黑框-----------------------------------------------------------
-    # 在图像中寻找矩形
-    rectangles = img.find_rects(threshold=10000)
+    #------------发展题 绿光追踪红光-----------------------------------------------------------
+    x, y = red_blob(img, threshold_red, ROI)           # 红光坐标
+    x1, y1 = green_blob(img, threshold_green, ROI)     # 绿光坐标
+    #print(x,y)
 
-    # 如果有找到矩形
-    if rectangles:
-        for r in img.find_rects(threshold = 10000):
-            # 判断矩形边长是否符合要求
-            if r.w() > 20 and r.h() > 20:
-                # 在屏幕上框出矩形
-                img.draw_rectangle(r.rect(), color = (255, 0, 0), scale = 4)
-                # 获取矩形角点位置
-                corner = r.corners()
-                # 在屏幕上圈出矩形角点
-                img.draw_circle(corner[0][0], corner[0][1], 5, color = (0, 0, 255), thickness = 2, fill = False)
-                img.draw_circle(corner[1][0], corner[1][1], 5, color = (0, 0, 255), thickness = 2, fill = False)
-                img.draw_circle(corner[2][0], corner[2][1], 5, color = (0, 0, 255), thickness = 2, fill = False)
-                img.draw_circle(corner[3][0], corner[3][1], 5, color = (0, 0, 255), thickness = 2, fill = False)
-
-            # 打印四个角点坐标, 角点1的数组是corner[0], 坐标就是(corner[0][0],corner[0][1])
-            # 角点检测输出的角点排序每次不一定一致，矩形左上的角点有可能是corner0,1,2,3其中一个
-            #------------第三问，识别红色光斑-----------------------------------------------------------
-            x, y = red_blob(img, threshold_red, ROI)           # 红光坐标
-            x1, y1 = green_blob(img, threshold_green, ROI)     # 绿光坐标
-            #print(x,y)
-
-            # 构造数据包，包头为（0xAA 0xFF）+顶点坐标(x,y)+包尾（0xFF 0xAA）
-#            position = bytearray([
+    # 构造数据包，包头为（0xAA 0xFF）+顶点坐标(x,y)+包尾（0xFF 0xAA）
+#   led_position = bytearray([
 #                0xAA, 0xFF,
-#                corner[0][0], corner[0][1],  # 角点1
-#                corner[1][0], corner[1][1],  # 角点2
-#                corner[2][0], corner[2][1],  # 角点3
-#                corner[3][0], corner[3][1],  # 角点4
 #                x, y,                          # 红光坐标
 #                0xFF, 0xAA
 #            ])
-            # uart.write(position)
+    # uart.write(position)
 
     #------------发展题 绿光跟随红光-----------------------------------------------------------
-
 
     # 显示到屏幕上，此部分会降低帧率
     # lcd.show_image(img, 160, 120, 0, 0, zoom=0)  #屏幕显示
