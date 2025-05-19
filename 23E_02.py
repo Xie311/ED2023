@@ -46,7 +46,7 @@ def red_blob(img, threshold_red,ROI):
 def green_blob(img, threshold_green, ROI):
 
     #识别绿色激光光斑
-    blobs = img.find_blobs(threshold_green, roi=ROI, x_stride=2, y_stride=2, area_threshold=0, pixels_threshold=0,merge=True,margin=10)
+    blobs = img.find_blobs(threshold_green, roi=ROI, x_stride=2, y_stride=2, area_threshold=0, pixels_threshold=0,merge=True,margin=1)
     if len(blobs)>=0.1 :#有色块
         # 选择像素最多的色块
         largest_blob = max(blobs, key=lambda b: b.pixels())

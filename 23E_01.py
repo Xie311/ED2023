@@ -10,11 +10,11 @@ uart=UART(3,115200)
 # 初始化摄像头
 sensor.reset()
 sensor.set_pixformat(sensor.RGB565)     # 设置图像色彩格式为RGB565格式
-sensor.set_framesize(sensor.QQVGA)       # 设置图像大小为320*240
+sensor.set_framesize(sensor.VGA)       # 设置图像大小为320*240
 sensor.set_auto_exposure(False)         # 关闭自动曝光
 sensor.set_auto_whitebal(False)         # 关闭自动白平衡
 sensor.set_auto_gain(False)             # 关闭增益（色块识别时必须要关）
-sensor.set_brightness(3000)             # 设置亮度为3000
+sensor.set_brightness(1000)             # 设置亮度为3000
 sensor.skip_frames(time = 20)           # 跳过帧
 
 clock = time.clock()
@@ -24,7 +24,7 @@ packet=None          # 接收题目序号
 position=None        # 发送点的坐标
 
 ROI = (0,0,160,120)
-threshold_red = [(62, 100, -19, 9, -5, 127)]    # 怎么这么亮呃
+threshold_red = [(0, 100, 14, 52, -16, 1)]    # 怎么这么亮呃
 threshold_green = [(100, 29, -26, -42, -4, 127)]
 
 def red_blob(img, threshold_red,ROI):
