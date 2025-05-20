@@ -8,18 +8,18 @@ import matplotlib.pyplot as plt
 # import serial  # 串口通信库
 # 初始化串口
 # 参数说明：'COM3'是串口号，115200是波特率，根据实际情况修改
-# ser = serial.Serial('COM3', 115200)  
+# ser = serial.Serial('COM3', 115200)
 
 # 初始化摄像头
 cap = cv2.VideoCapture(1)  
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 160)   # 设置图像宽度为320
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)  # 设置图像高度为240
-cap.set(cv2.CAP_PROP_BRIGHTNESS, 1.0)    # 设置亮度，范围0-1
+cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.8)    # 设置亮度，范围0-1
 cap.set(cv2.CAP_PROP_AUTO_WB, 0)         # 关闭自动白平衡
 # 关闭自动曝光（必须关闭才能手动设置）
 cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # 0.25 或 0 表示手动曝光
 # 调小曝光值（减少进光量）
-cap.set(cv2.CAP_PROP_EXPOSURE, -6)  # 典型范围：-8（最暗）到 -1（较亮），或 0.1~0.001（秒）
+cap.set(cv2.CAP_PROP_EXPOSURE, -2)  # 典型范围：-8（最暗）到 -1（较亮），或 0.1~0.001（秒）
 
 # 定义感兴趣区域(ROI)
 # 格式：(x起始坐标, y起始坐标, 宽度, 高度)
@@ -56,46 +56,57 @@ def detect_black_rectangle(frame, min_area=1000, min_side=20, max_aspect_ratio=5
     """
     # 转换为HSV颜色空间
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    hsv = cv2.LUT(hsv, lutSRaisen)             # 饱和度增大
-    
+    # 线性查找表（保持蓝色通道不变）
+    lutEqual = np.array([i for i in range(256)]).astype("uint8")
+
+    # 增强红色通道的查找表（可调整参数）
+    lutRaisen_red = np.array([int(50 + 0.8 * i) for i in range(256)]).astype("uint8")  # 增强红色
+
+    # 增强绿色通道的查找表（可调整参数）
+    lutRaisen_green = np.array([int(50 + 0.8 * i) for i in range(256)]).astype("uint8")  # 增强绿色
+
+    # 组合成三通道 LUT（R:增强, G:增强, B:不变）
+    lutSRG = np.dstack((lutRaisen_red, lutRaisen_green, lutEqual))  # 增强红、绿，蓝不变
+    hsv = cv2.LUT(hsv, lutSRG)  # 红绿饱和度增大
+
     # 定义黑色的HSV范围
     lower_black = np.array([0, 0, 0])
     upper_black = np.array([180, 255, 50])
-    
+
     # 创建黑色区域的掩膜
     mask = cv2.inRange(hsv, lower_black, upper_black)
-    
+
     # 形态学操作
     kernel = np.ones((3,3), np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-    
+
     # 查找轮廓
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
+
     processed_frame = frame.copy()
     max_rect = None
     max_area = 0
-    
+
     for contour in contours:
         area = cv2.contourArea(contour)
-        
+
         # 只保留面积最大的轮廓
         if area < min_area or area <= max_area:
             continue
-            
+
         # 多边形逼近
         epsilon = 0.02 * cv2.arcLength(contour, True)
         approx = cv2.approxPolyDP(contour, epsilon, True)
-        
-        # 放宽四边形检测条件（4-5个边都接受）
-        if 4 <= len(approx) <= 5:
+
+        # 放宽四边形检测条件（4边则接受）
+        if len(approx) == 4:
             x, y, w, h = cv2.boundingRect(approx)
             aspect_ratio = max(w, h) / min(w, h)
-            
+
             if w > min_side and h > min_side and aspect_ratio < max_aspect_ratio:
                 max_area = area
-                
+
                 # 获取并排序角点
                 corners = approx.reshape(-1, 2)
                 center = corners.mean(axis=0)
@@ -103,22 +114,71 @@ def detect_black_rectangle(frame, min_area=1000, min_side=20, max_aspect_ratio=5
                 angles = np.arctan2(diff[:,1], diff[:,0])
                 sorted_idx = np.argsort(angles)
                 max_rect = corners[sorted_idx]
-    
+
     # 绘制检测到的最大矩形
     if max_rect is not None:
         # 绘制矩形边框（红色）
         cv2.drawContours(processed_frame, [max_rect.astype(int)], 0, (0, 0, 255), 2)
-        
+
         # 绘制角点（蓝色）
         for (cx, cy) in max_rect:
             cv2.circle(processed_frame, (int(cx), int(cy)), 5, (255, 0, 0), 2)
-    
+
     return processed_frame, max_rect
+
+
+def stable_rectangle_detection(cap, num_frames=20, min_consistent=15, max_error=5):
+    """
+    稳定检测黑色矩形（多次检测取平均值）
+
+    参数:
+        cap: cv2.VideoCapture 对象
+        num_frames: 总检测次数（默认20次）
+        min_consistent: 最小稳定次数（默认15次）
+        max_error: 允许的最大坐标误差（默认5像素）
+
+    返回:
+        avg_corners: 稳定的平均角点坐标（4x2数组），未检测到返回None
+    """
+    # 存储检测到的矩形角点
+    detected_rects = []
+
+    for _ in range(num_frames):
+        ret, frame = cap.read()
+        if not ret:
+            continue
+
+        _, rect = detect_black_rectangle(frame)
+
+        if rect is not None:
+            detected_rects.append(rect)
+
+    # 如果检测次数不足，返回None
+    if len(detected_rects) < min_consistent:
+        return None
+
+    # 计算角点的平均值
+    avg_corners = np.mean(detected_rects, axis=0)
+
+    # 检查稳定性（各次检测与平均值的误差是否 < max_error）
+    stable_count = 0
+    for rect in detected_rects:
+        error = np.mean(np.abs(rect - avg_corners))
+        if error < max_error:
+            stable_count += 1
+
+    # 如果稳定次数足够，返回平均坐标
+    if stable_count >= min_consistent:
+        return avg_corners.astype(int)
+    else:
+        return None
+
 
 def red_blob(frame):
     """检测全图中红色光斑（单HSV范围）"""
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     hsv = cv2.LUT(hsv, lutSRaisen)  # 保持饱和度增强
+    cx,cy=0,0
     
     # 单红色范围掩膜（根据实际调整阈值）
     mask = cv2.inRange(hsv, lower_red, upper_red)
@@ -130,13 +190,14 @@ def red_blob(frame):
         M = cv2.moments(largest)
         if M['m00']!=0:
             cx, cy = int(M['m10']/M['m00']), int(M['m01']/M['m00'])
-        return cx, cy
-    return 0, 0  # 未检测到
+    
+    return cx,cy  # 未检测到
 
 def green_blob(frame):
     """检测全图中绿色光斑（单HSV范围）"""
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     hsv = cv2.LUT(hsv, lutSRaisen)  # 保持饱和度增强
+    cx,cy=0,0
     
     # 绿色掩膜
     mask = cv2.inRange(hsv, lower_green, upper_green)
@@ -147,8 +208,7 @@ def green_blob(frame):
         M = cv2.moments(largest)
         if M['m00']!=0:
             cx, cy = int(M['m10']/M['m00']), int(M['m01']/M['m00'])
-        return cx, cy
-    return 0, 0
+    return cx,cy
 
 
 # 初始化卡尔曼滤波器#######################################################################################
@@ -208,52 +268,50 @@ def Figure()  :
     plt.show()
 
 init_kalman_filter()
+stable_rect = stable_rectangle_detection(cap)
 while cap.isOpened():
     # 读取摄像头帧
     ret, frame = cap.read()
     if not ret:
         break
-    
+
     # 创建一个用于绘制的图像副本
     display_frame = frame.copy()
-    
-    # 检测黑色矩形
-    processed_frame, max_rect = detect_black_rectangle(frame)
-    # 将检测到的矩形绘制到display_frame上
-    if max_rect is not None:
+
+    # 如果已经检测到稳定矩形，直接绘制
+    if stable_rect is not None:
         # 绘制矩形轮廓
-        cv2.drawContours(display_frame, [max_rect.astype(int)], -1, (0, 0, 255), 2)
-         # 绘制矩形的四个角点
-        for point in max_rect:
+        cv2.drawContours(display_frame, [stable_rect.astype(int)], -1, (0, 0, 255), 2)
+        # 绘制矩形的四个角点
+        for point in stable_rect:
             cx, cy = point
             cv2.circle(display_frame, (int(cx), int(cy)), 5, (255, 0, 0), 2)
 
     # 检测红色和绿色光斑
-    #x_red, y_red = red_blob(frame) 
-    x_green, y_green = green_blob(frame)  
-    
-    Kalman_filter_cv2(x_green,y_green)
-    
+    x_red, y_red = red_blob(frame) 
+    # x_green, y_green = green_blob(frame)
+
+    # Kalman_filter_cv2(x_green,y_green)
     # print(f"Red blob: ({x_red}, {y_red})")
     # print(f"Green blob: ({x_green}, {y_green})")
 
     # 绘制蓝色圆圈（红色光斑）
-    # if x_red is not None and y_red is not None:
-    #     cv2.circle(display_frame, (int(x_red), int(y_red)), 6, (255, 0, 0), 2)       # 蓝色空心圆
+    if x_red >0 and y_red >0:
+        cv2.circle(display_frame, (int(x_red), int(y_red)), 6, (255, 0, 0), 2)       # 蓝色空心圆
     # 绘制紫色圆圈（绿色光斑）
-    if x_green is not None and y_green is not None:
-        cv2.circle(display_frame, (int(x_green), int(y_green)), 6, (255, 0, 255), 2)  # 黄色空心圆
+    # if x_green > 0 and y_green > 0:
+    #     cv2.circle(display_frame, (int(x_green), int(y_green)), 6, (255, 0, 255), 2)  # 黄色空心圆
 
     # 显示最终结果
     cv2.imshow("Detection", display_frame)
-    
+
     key = cv2.waitKey(1)
     if key == 32:
         Figure()
         break  
     if key == 27:
         break  
-    
+
 
 # 释放资源
 cap.release()
