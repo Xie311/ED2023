@@ -5,6 +5,7 @@ import time  # 时间库
 import struct
 from filterpy.kalman import KalmanFilter
 import matplotlib.pyplot as plt
+from collections import deque
 # import serial  # 串口通信库
 # 初始化串口
 # 参数说明：'COM3'是串口号，115200是波特率，根据实际情况修改
@@ -12,8 +13,8 @@ import matplotlib.pyplot as plt
 
 # 初始化摄像头
 cap = cv2.VideoCapture(1)  
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 160)   # 设置图像宽度为320
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)  # 设置图像高度为240
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 160)   # 设置图像宽度为160
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)  # 设置图像高度为120
 cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.8)    # 设置亮度，范围0-1
 cap.set(cv2.CAP_PROP_AUTO_WB, 0)         # 关闭自动白平衡
 # 关闭自动曝光（必须关闭才能手动设置）
@@ -173,42 +174,90 @@ def stable_rectangle_detection(cap, num_frames=20, min_consistent=15, max_error=
     else:
         return None
 
+####################### 处理红、绿光点 ##############################################################
+# 历史坐标缓存（存储最近5次有效坐标）
+red_history = deque(maxlen=5)
+green_history = deque(maxlen=5)
+
+
+def smooth_coordinate(new_val, history, max_jump=10):
+    """
+    平滑坐标，滤除突变点并估算噪声点坐标
+    参数:
+        new_val: 新检测到的坐标 (x, y)
+        history: 历史坐标队列（deque）
+        max_jump: 允许的最大跳跃距离（像素）
+    返回:
+        平滑后的坐标（优先用新坐标，噪声点则用估算值）
+    """
+    if not history:  # 第一次检测，直接接受
+        history.append(new_val)
+        return new_val
+
+    # 计算历史移动趋势（加权平均，近期点权重更高）
+    weights = np.linspace(0.5, 1.5, len(history))  # 权重递增
+    trend = np.average(history, axis=0, weights=weights)
+
+    # 计算新坐标与趋势的距离
+    distance = np.linalg.norm(new_val - trend)
+
+    if distance <= max_jump:
+        # 正常点：更新历史记录并返回新坐标
+        history.append(new_val)
+        return new_val
+    else:
+        # 噪声点：基于历史趋势估算当前坐标
+        if len(history) >= 2:
+            # 计算移动向量（最近两点的差值）
+            dx = history[-1][0] - history[-2][0]
+            dy = history[-1][1] - history[-2][1]
+            estimated = (history[-1][0] + dx, history[-1][1] + dy)
+        else:
+            estimated = trend  # 不足两点时直接用趋势值
+
+        # 将估算值加入历史（但不完全信任）
+        history.append(estimated)
+        return estimated
+
 
 def red_blob(frame):
-    """检测全图中红色光斑（单HSV范围）"""
+    """检测红色光斑（带动态滤波）"""
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    hsv = cv2.LUT(hsv, lutSRaisen)  # 保持饱和度增强
-    cx,cy=0,0
-    
-    # 单红色范围掩膜（根据实际调整阈值）
+    hsv = cv2.LUT(hsv, lutSRaisen)
+    cx, cy = -1, -1  # 默认值
+
     mask = cv2.inRange(hsv, lower_red, upper_red)
-    
-    # 检测最大轮廓
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
     if contours:
         largest = max(contours, key=cv2.contourArea)
         M = cv2.moments(largest)
-        if M['m00']!=0:
-            cx, cy = int(M['m10']/M['m00']), int(M['m01']/M['m00'])
-    
-    return cx,cy  # 未检测到
+        if M["m00"] != 0:
+            cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+
+    # 动态滤波
+    smoothed = smooth_coordinate((cx, cy), red_history)
+    return smoothed if smoothed is not None else (-1, -1)
+
 
 def green_blob(frame):
-    """检测全图中绿色光斑（单HSV范围）"""
+    """检测绿色光斑（带动态滤波）"""
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    hsv = cv2.LUT(hsv, lutSRaisen)  # 保持饱和度增强
-    cx,cy=0,0
-    
-    # 绿色掩膜
+    hsv = cv2.LUT(hsv, lutSRaisen)
+    cx, cy = -1, -1  # 默认值
+
     mask = cv2.inRange(hsv, lower_green, upper_green)
-    
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
     if contours:
         largest = max(contours, key=cv2.contourArea)
         M = cv2.moments(largest)
-        if M['m00']!=0:
-            cx, cy = int(M['m10']/M['m00']), int(M['m01']/M['m00'])
-    return cx,cy
+        if M["m00"] != 0:
+            cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+
+    # 动态滤波
+    smoothed = smooth_coordinate((cx, cy), green_history)
+    return smoothed if smoothed is not None else (-1, -1)
 
 
 # 初始化卡尔曼滤波器#######################################################################################
@@ -289,7 +338,7 @@ while cap.isOpened():
 
     # 检测红色和绿色光斑
     x_red, y_red = red_blob(frame) 
-    # x_green, y_green = green_blob(frame)
+    x_green, y_green = green_blob(frame)
 
     # Kalman_filter_cv2(x_green,y_green)
     # print(f"Red blob: ({x_red}, {y_red})")
@@ -299,8 +348,8 @@ while cap.isOpened():
     if x_red >0 and y_red >0:
         cv2.circle(display_frame, (int(x_red), int(y_red)), 6, (255, 0, 0), 2)       # 蓝色空心圆
     # 绘制紫色圆圈（绿色光斑）
-    # if x_green > 0 and y_green > 0:
-    #     cv2.circle(display_frame, (int(x_green), int(y_green)), 6, (255, 0, 255), 2)  # 黄色空心圆
+    if x_green > 0 and y_green > 0:
+        cv2.circle(display_frame, (int(x_green), int(y_green)), 6, (255, 0, 255), 2)  # 黄色空心圆
 
     # 显示最终结果
     cv2.imshow("Detection", display_frame)
