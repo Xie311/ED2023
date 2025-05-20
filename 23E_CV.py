@@ -15,12 +15,12 @@ from collections import deque
 cap = cv2.VideoCapture(1)  
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 160)   # 设置图像宽度为160
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)  # 设置图像高度为120
-cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.8)    # 设置亮度，范围0-1
+cap.set(cv2.CAP_PROP_BRIGHTNESS, 1.0)    # 设置亮度，范围0-1
 cap.set(cv2.CAP_PROP_AUTO_WB, 0)         # 关闭自动白平衡
 # 关闭自动曝光（必须关闭才能手动设置）
 cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # 0.25 或 0 表示手动曝光
 # 调小曝光值（减少进光量）
-cap.set(cv2.CAP_PROP_EXPOSURE, -2)  # 典型范围：-8（最暗）到 -1（较亮），或 0.1~0.001（秒）
+cap.set(cv2.CAP_PROP_EXPOSURE, -6)  # 典型范围：-8（最暗）到 -1（较亮），或 0.1~0.001（秒）
 
 # 定义感兴趣区域(ROI)
 # 格式：(x起始坐标, y起始坐标, 宽度, 高度)
@@ -35,11 +35,11 @@ lutSRaisen = np.dstack((lutEqual, lutRaisen, lutEqual))  # Saturation raisen
 
 # 定义红色和绿色的HSV颜色范围阈值
 # HSV颜色空间中，红色需要两个范围来覆盖
-lower_red = np.array([80, 0, 182])   # 红色下限 (H,S,V)
+lower_red = np.array([104, 107, 124])   # 红色下限 (H,S,V)
 upper_red = np.array([179, 255, 255]) # 红色上限
 
-lower_green = np.array([0, 0, 182])   # 更合理的绿色下限
-upper_green = np.array([60, 255, 255]) # 更合理的绿色上限
+lower_green = np.array([0, 79, 203])   # 更合理的绿色下限
+upper_green = np.array([63, 255, 255]) # 更合理的绿色上限
 
 def detect_black_rectangle(frame, min_area=1000, min_side=20, max_aspect_ratio=5):
     """
@@ -345,11 +345,9 @@ while cap.isOpened():
     # print(f"Green blob: ({x_green}, {y_green})")
 
     # 绘制蓝色圆圈（红色光斑）
-    if x_red >0 and y_red >0:
-        cv2.circle(display_frame, (int(x_red), int(y_red)), 6, (255, 0, 0), 2)       # 蓝色空心圆
+    cv2.circle(display_frame, (int(x_red), int(y_red)), 6, (255, 0, 0), 2)       # 蓝色空心圆
     # 绘制紫色圆圈（绿色光斑）
-    if x_green > 0 and y_green > 0:
-        cv2.circle(display_frame, (int(x_green), int(y_green)), 6, (255, 0, 255), 2)  # 黄色空心圆
+    cv2.circle(display_frame, (int(x_green), int(y_green)), 6, (255, 0, 255), 2)  # 黄色空心圆
 
     # 显示最终结果
     cv2.imshow("Detection", display_frame)
