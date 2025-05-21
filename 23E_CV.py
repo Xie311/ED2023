@@ -219,45 +219,165 @@ def smooth_coordinate(new_val, history, max_jump=10):
         history.append(estimated)
         return estimated
 
-
+################ 检测红色光点 ################################################################
 def red_blob(frame):
-    """检测红色光斑（带动态滤波）"""
+    """检测红色光斑（改进版：先检测完整圆，若无则检测环形结构）"""
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     hsv = cv2.LUT(hsv, lutSRaisen)
     cx, cy = -1, -1  # 默认值
 
+    # 红色区域掩膜
     mask = cv2.inRange(hsv, lower_red, upper_red)
+
+    # 策略1：检测完整圆形（霍夫圆变换）
+    circles = cv2.HoughCircles(
+        mask,
+        cv2.HOUGH_GRADIENT,
+        dp=1,
+        minDist=50,
+        param1=100,
+        param2=30,
+        minRadius=1,
+        maxRadius=300,
+    )
+
+    if circles is not None:
+        circles = np.uint16(np.around(circles))
+        largest = max(circles[0, :], key=lambda x: x[2])
+        return largest[0], largest[1]
+
+    # 策略2：检测环形结构
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return -1, -1
 
-    if contours:
-        largest = max(contours, key=cv2.contourArea)
-        M = cv2.moments(largest)
+    # 找到最大轮廓
+    largest = max(contours, key=cv2.contourArea)
+    contour_area = cv2.contourArea(largest)
+
+    # 计算凸包面积
+    hull = cv2.convexHull(largest)
+    hull_area = cv2.contourArea(hull)
+
+    # 环形判定条件（仅用凸包面积比）
+    if hull_area > 0 and contour_area / hull_area < 0.85:  # 阈值可调
+        # 方法：检测空心部分的圆心
+        # 1. 创建仅包含最大轮廓的掩膜
+        contour_mask = np.zeros_like(mask)
+        cv2.drawContours(contour_mask, [largest], -1, 255, -1)
+
+        # 2. 获取空心部分（轮廓内非红色区域）
+        hollow_area = cv2.bitwise_and(cv2.bitwise_not(mask), contour_mask)
+
+        # 3. 检测空心部分的圆（霍夫变换）
+        circles = cv2.HoughCircles(
+            hollow_area,
+            cv2.HOUGH_GRADIENT,
+            dp=1,
+            minDist=50,
+            param1=50,
+            param2=20,  # 较低阈值提高检测率
+            minRadius=5,
+            maxRadius=int(np.sqrt(contour_area / np.pi) * 0.8),  # 限制最大半径
+        )
+
+        if circles is not None:
+            circles = np.uint16(np.around(circles))
+            # 返回最大的内接圆圆心
+            largest_inner = max(circles[0, :], key=lambda x: x[2])
+            return largest_inner[0], largest_inner[1]
+
+        # 如果霍夫变换失败，返回凸包的中心（备选方案）
+        M = cv2.moments(hull)
         if M["m00"] != 0:
-            cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+            return int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
 
-    # 动态滤波
-    smoothed = smooth_coordinate((cx, cy), red_history)
-    return smoothed if smoothed is not None else (-1, -1)
+    # 如果不是环形，返回轮廓的质心
+    M = cv2.moments(largest)
+    if M["m00"] != 0:
+        return int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+
+    return -1, -1
 
 
 def green_blob(frame):
-    """检测绿色光斑（带动态滤波）"""
+    """检测绿色光斑（改进版：先检测完整圆，若无则检测环形结构）"""
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     hsv = cv2.LUT(hsv, lutSRaisen)
     cx, cy = -1, -1  # 默认值
 
+    # 红色区域掩膜
     mask = cv2.inRange(hsv, lower_green, upper_green)
+
+    # 策略1：检测完整圆形（霍夫圆变换）
+    circles = cv2.HoughCircles(
+        mask,
+        cv2.HOUGH_GRADIENT,
+        dp=1,
+        minDist=50,
+        param1=100,
+        param2=30,
+        minRadius=1,
+        maxRadius=300,
+    )
+
+    if circles is not None:
+        circles = np.uint16(np.around(circles))
+        largest = max(circles[0, :], key=lambda x: x[2])
+        return largest[0], largest[1]
+
+    # 策略2：检测环形结构
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return -1, -1
 
-    if contours:
-        largest = max(contours, key=cv2.contourArea)
-        M = cv2.moments(largest)
+    # 找到最大轮廓
+    largest = max(contours, key=cv2.contourArea)
+    contour_area = cv2.contourArea(largest)
+
+    # 计算凸包面积
+    hull = cv2.convexHull(largest)
+    hull_area = cv2.contourArea(hull)
+
+    # 环形判定条件（仅用凸包面积比）
+    if hull_area > 0 and contour_area / hull_area < 0.85:  # 阈值可调
+        # 方法：检测空心部分的圆心
+        # 1. 创建仅包含最大轮廓的掩膜
+        contour_mask = np.zeros_like(mask)
+        cv2.drawContours(contour_mask, [largest], -1, 255, -1)
+
+        # 2. 获取空心部分（轮廓内非红色区域）
+        hollow_area = cv2.bitwise_and(cv2.bitwise_not(mask), contour_mask)
+
+        # 3. 检测空心部分的圆（霍夫变换）
+        circles = cv2.HoughCircles(
+            hollow_area,
+            cv2.HOUGH_GRADIENT,
+            dp=1,
+            minDist=50,
+            param1=50,
+            param2=20,  # 较低阈值提高检测率
+            minRadius=5,
+            maxRadius=int(np.sqrt(contour_area / np.pi) * 0.8),  # 限制最大半径
+        )
+
+        if circles is not None:
+            circles = np.uint16(np.around(circles))
+            # 返回最大的内接圆圆心
+            largest_inner = max(circles[0, :], key=lambda x: x[2])
+            return largest_inner[0], largest_inner[1]
+
+        # 如果霍夫变换失败，返回凸包的中心（备选方案）
+        M = cv2.moments(hull)
         if M["m00"] != 0:
-            cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+            return int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
 
-    # 动态滤波
-    smoothed = smooth_coordinate((cx, cy), green_history)
-    return smoothed if smoothed is not None else (-1, -1)
+    # 如果不是环形，返回轮廓的质心
+    M = cv2.moments(largest)
+    if M["m00"] != 0:
+        return int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+
+    return -1, -1
 
 
 # 初始化卡尔曼滤波器#######################################################################################
@@ -345,9 +465,11 @@ while cap.isOpened():
     # print(f"Green blob: ({x_green}, {y_green})")
 
     # 绘制蓝色圆圈（红色光斑）
-    cv2.circle(display_frame, (int(x_red), int(y_red)), 6, (255, 0, 0), 2)       # 蓝色空心圆
+    if x_red>0 and y_red>0:
+        cv2.circle(display_frame, (int(x_red), int(y_red)), 6, (255, 0, 0), 2)       # 蓝色空心圆
     # 绘制紫色圆圈（绿色光斑）
-    cv2.circle(display_frame, (int(x_green), int(y_green)), 6, (255, 0, 255), 2)  # 黄色空心圆
+    if x_green>0 and y_green>0:
+        cv2.circle(display_frame, (int(x_green), int(y_green)), 6, (255, 0, 255), 2)  # 黄色空心圆
 
     # 显示最终结果
     cv2.imshow("Detection", display_frame)
