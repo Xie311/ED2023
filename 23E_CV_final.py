@@ -65,7 +65,7 @@ def detect_black_rectangle(frame, min_area=1000, min_side=20, max_aspect_ratio=5
 
     # 定义黑色的HSV范围
     lower_black = np.array([0, 0, 0])
-    upper_black = np.array([180, 255, 50])
+    upper_black = np.array([179, 255, 100])
 
     # 创建黑色区域的掩膜
     mask = cv2.inRange(hsv, lower_black, upper_black)
@@ -226,6 +226,7 @@ while cap.isOpened():
         M_red = cv2.moments(largest_red)
         if M_red["m00"] != 0:
             x_red, y_red = int(M_red["m10"] / M_red["m00"]), int(M_red["m01"] / M_red["m00"])
+            
 
     if contours_green:
         largest_green = max(contours_green,key=cv2.contourArea)
