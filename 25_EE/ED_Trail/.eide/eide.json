@@ -1,5 +1,5 @@
 {
-  "name": "ED_Trace",
+  "name": "ED_Trail",
   "type": "ARM",
   "dependenceList": [],
   "srcDirs": [
@@ -22,7 +22,7 @@
   "deviceName": null,
   "packDir": null,
   "miscInfo": {
-    "uid": "3f79aa90c8df8a36b0f644fb2387caeb"
+    "uid": "49f6e9fd60f567ea22583b68df345b19"
   },
   "targets": {
     "Debug": {
@@ -30,6 +30,7 @@
       "toolchain": "GCC",
       "compileConfig": {
         "cpuType": "Cortex-M4",
+        "archExtensions": "",
         "floatingPointHardware": "single",
         "scatterFilePath": "STM32F407VETx_FLASH.ld",
         "useCustomScatterFile": true,
@@ -67,7 +68,6 @@
       "custom_dep": {
         "name": "default",
         "incList": [
-          ".eide/deps",
           "Core/Inc",
           "Drivers/STM32F4xx_HAL_Driver/Inc",
           "Drivers/STM32F4xx_HAL_Driver/Inc/Legacy",
@@ -78,13 +78,39 @@
           "Drivers/CMSIS/Include"
         ],
         "libList": [],
-        "sourceDirList": [],
         "defineList": [
           "USE_HAL_DRIVER",
           "STM32F407xx"
         ]
+      },
+      "builderOptions": {
+        "GCC": {
+          "version": 5,
+          "beforeBuildTasks": [],
+          "afterBuildTasks": [],
+          "global": {
+            "$float-abi-type": "hard",
+            "output-debug-info": "enable",
+            "misc-control": "--specs=nosys.specs --specs=nano.specs"
+          },
+          "c/cpp-compiler": {
+            "language-c": "c11",
+            "language-cpp": "c++11",
+            "optimization": "level-debug",
+            "warnings": "all-warnings",
+            "one-elf-section-per-function": true,
+            "one-elf-section-per-data": true
+          },
+          "asm-compiler": {},
+          "linker": {
+            "output-format": "elf",
+            "remove-unused-input-sections": true,
+            "LIB_FLAGS": "-lm",
+            "$toolName": "auto"
+          }
+        }
       }
     }
   },
-  "version": "3.3"
+  "version": "3.6"
 }
