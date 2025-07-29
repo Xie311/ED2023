@@ -3,9 +3,6 @@
 
 #include "chassis_start.h"
 
-void OPS_Debug_TaskStart(void);
-void OPS_Debug_Task(void *argument);
-
 void Tar_Debug_TaskStart(void);
 void Tar_Debug_Task(void *argument);
 

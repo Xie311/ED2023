@@ -20,38 +20,8 @@ Tar_t Tar_Data_tmp; // 上位机传来的目标位置
 void Chassis_StateMachine_Task(void const *argument)
 {
     for (;;) {
-        vPortEnterCritical(); // 进入临界区，防止多个任务同时访问 RemoteCtl_RawData
-        //测试代码
-        Tar_Data_tmp.pos_x = 0;
-        Tar_Data_tmp.pos_y = 100;
-        Tar_Data_tmp.state     = 3;
-        vPortExitCritical(); // 退出临界区
-        switch (Tar_Data_tmp.state) {
-            case Stop:
-                // 获取底盘控制的互斥锁，防止多任务同时修改底盘控制数据
-                xSemaphoreTakeRecursive(ChassisControl.xMutex_control, portMAX_DELAY);
-                ChassisControl.velocity.x = 0;
-                ChassisControl.velocity.y = 0;
-                ChassisControl.velocity.w = 0;
-                // 释放底盘控制的互斥锁
-                xSemaphoreGiveRecursive(ChassisControl.xMutex_control);
-                break;
-            case Run:
-                // 获取底盘控制的互斥锁，防止多任务同时修改底盘控制数据
-                xSemaphoreTakeRecursive(ChassisControl.xMutex_control, portMAX_DELAY);
-                // 根据上位机传来数据输入设置底盘速度，同时进行死区处理
-                DeadBandOneDimensional(Tar_Data_tmp.pos_x, &(ChassisControl.position.x), 0.05);
-                DeadBandOneDimensional(Tar_Data_tmp.pos_y, &(ChassisControl.position.y), 0.05);
-                //DeadBandOneDimensional(Tar_Data.vw, &(ChassisControl.position.w), 0.05);
-                // 释放底盘控制的互斥锁
-                xSemaphoreGiveRecursive(ChassisControl.xMutex_control);
-                break;
-            case Correcting:
+       
 
-                break;
-            default:
-                break;
-        }
         osDelay(10);
     }
 }

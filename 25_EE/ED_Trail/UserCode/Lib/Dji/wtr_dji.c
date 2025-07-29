@@ -7,26 +7,25 @@ DJI_t hDJI[8];
 void DJI_Init()
 {
     for (int i = 0; i < 8; i++) {
-        hDJI[i].speedPID.KP        = 12;
+        hDJI[i].speedPID.KP        = 4.0f;
         hDJI[i].speedPID.KI        = 0.2;
         hDJI[i].speedPID.KD        = 0.8;
-        hDJI[i].speedPID.outputMax = 8000;
+        hDJI[i].speedPID.outputMax = 5000;
 
-        
-
-        hDJI[i].posPID.KP        = 80.0f;
+        hDJI[i].posPID.KP        = 20.0f;
         hDJI[i].posPID.KI        = 1.0f;
         hDJI[i].posPID.KD        = 0.0f;
         hDJI[i].posPID.outputMax = 5000;
-        //			  hDJI[i].posPID.outputMin = 1500;
+        //	hDJI[i].posPID.outputMin = 1500;
 
-        if (hDJI[i].motorType == M3508) {
-            hDJI[i].reductionRate = 3591.0f / 187.0f; // 2006减速比为36 3508减速比约为19
-        } else if (hDJI[i].motorType == M2006) {
-            hDJI[i].reductionRate = 36.0f;
-        }
+        // if (hDJI[i].motorType == M3508) {
+        //     hDJI[i].reductionRate = 19.0f; // 2006减速比为36 3508减速比约为19
+        // } else if (hDJI[i].motorType == M2006) {
+        //     hDJI[i].reductionRate = 36.0f;
+        // }
+       hDJI[i].reductionRate = 1.0f;
 
-        hDJI[i].encoder_resolution = 8192.0f;  //编码器分辨率，即编码器每转产生的脉冲数为8192。
+        hDJI[i].encoder_resolution = 8192.0f;
     }
 }
 
@@ -101,13 +100,13 @@ void DJI_Update(DJI_t *motor, uint8_t *fdbData)
     /* 电机输出轴角度      */
     motor->AxisData.AxisAngle_inDegree = motor->Calculate.RotorRound * 360.0f;
     motor->AxisData.AxisAngle_inDegree += motor->Calculate.RotorAngle_0_360_Log[NOW] - motor->Calculate.RotorAngle_0_360_OffSet;
-    motor->AxisData.AxisAngle_inDegree /= motor->reductionRate;
+    motor->AxisData.AxisAngle_inDegree /= motor->reductionRate;         //输出轴角度 = 输入轴 / 减速比
 
     motor->AxisData.AxisVelocity    = motor->FdbData.rpm / motor->reductionRate;
     motor->Calculate.RotorAngle_all = motor->Calculate.RotorRound * 360 + motor->Calculate.RotorAngle_0_360_Log[NOW] - motor->Calculate.RotorAngle_0_360_OffSet;
 }
 
-void get_dji_offset(DJI_t *motor, uint8_t *fdbData)
+void get_dji_offset(DJI_t *motor, uint8_t *fdbData)         //零点校准函数
 {
     motor->FdbData.RotorAngle_0_360             = (fdbData[0] << 8 | fdbData[1]) * 360.0f / motor->encoder_resolution;
     motor->Calculate.RotorAngle_0_360_Log[LAST] = motor->FdbData.RotorAngle_0_360;
@@ -122,7 +121,7 @@ HAL_StatusTypeDef DJI_CanMsgDecode(uint32_t Stdid, uint8_t *fdbData)
     if (i >= 0 && i < 8) {
         if (hDJI[i].FdbData.msg_cnt < 50) {
             get_dji_offset(&hDJI[i], fdbData);
-            hDJI[i].FdbData.msg_cnt++;
+            hDJI[i].FdbData.msg_cnt++;              //注意这个循环其实只运行了一次（没有对cnt进行置零处理）
         } else {
             DJI_Update(&hDJI[i], fdbData);
         }

@@ -11,7 +11,7 @@
 #include "Debug.h"
 
 /**
- * @brief   数据接收线程开启
+ * @brief   调试线程开启
  */
 void Tar_Debug_TaskStart(void)
 {
@@ -27,7 +27,7 @@ void Tar_Debug_TaskStart(void)
 }
 
 /**
- * @brief   数据接收线程
+ * @brief  调试线程
  */
 void Tar_Debug_Task(void *argument)
 {

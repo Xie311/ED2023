@@ -2,8 +2,8 @@
  * @Author: szf
  * @Date: 2023-02-22 12:06:17
  * @LastEditors: X311 
- * @LastEditTime: 2025-07-26 22:49:25
- * @FilePath: \ED_Trace\UserCode\Lib\Calculate\wtr_calculate.h
+ * @LastEditTime: 2025-07-28 00:48:51
+ * @FilePath: \ED_Trail\UserCode\Lib\Calculate\wtr_calculate.h
  * @brief大疆电机PID以及底盘逆解
  *
  * Copyright (c) 2023 by ChenYiTong, All Rights Reserved.
@@ -11,8 +11,7 @@
 
 #pragma once
 
-#include "chassis_start.h"
-
+//#include "chassis_start.h"
 #include "wtr_dji.h"
 
 #define r_underpan_3 0.1934
@@ -31,9 +30,13 @@ void positionServo(float ref, DJI_t *motor);
 // 速度伺服
 void speedServo(float ref, DJI_t *motor);
 
+// 位置伺服,使用雷达反馈
+void positionServo_lidar(float ref, DJI_t *motor, float distance_aver);
+
 // 圆周死区控制
 void DeadBand(double x, double y, double *new_x, double *new_y, double threshould);
 
 // 单维度死区控制
 void DeadBandOneDimensional(double x, double *new_x, double threshould);
 
+void PID_Calc_P(__IO PID_t *pid);

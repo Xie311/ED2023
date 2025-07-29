@@ -8,33 +8,30 @@
  */
 #include "upper_debug.h"
 
-/**
- * @brief 调试线程开启
- * 
- */
-void Upper_Debug_TaskStart(void)
-{
-    const osThreadAttr_t upper_debug_Task_attributes = {
-        .name       = "upper_debug_Task",
-        .stack_size = 128 * 10,
-        .priority   = (osPriority_t)osPriorityNormal,
-    };
-    osThreadNew(Upper_Debug_Task, NULL, &upper_debug_Task_attributes);
-}
+// /**
+//  * @brief 调试线程开启
+//  * 
+//  */
+// void Upper_Debug_TaskStart(void)
+// {
+//     const osThreadAttr_t upper_debug_Task_attributes = {
+//         .name       = "upper_debug_Task",
+//         .stack_size = 128 * 10,
+//         .priority   = (osPriority_t)osPriorityNormal,
+//     };
+//     osThreadNew(Upper_Debug_Task, NULL, &upper_debug_Task_attributes);
+// }
 
-/**
- * @brief   调试线程
- */
-void Upper_Debug_Task(void *argument)
-{
-    osDelay(100);
-    // for (;;) {
-    //     printf("%f,%f,%f,%f,%f,%f,%f,%d\n",
-    //            distance_aver[0], distance_aver[1], distance_aver[2], distance_aver[3],distance_aver[4],
-    //            Upper[0].Motor_Y->speedPID.output, Upper[1].Motor_Y->speedPID.output, (int)stake_flag
-    //     );
-    //}
-}
+// /**
+//  * @brief   调试线程
+//  */
+// void Upper_Debug_Task(void *argument)
+// {
+// //     osDelay(100);
+// //     for (;;) {
+// //         print("%f\n",hDJI_tmp[0].speedPID.output);
+// //     }
+// }
 
 // /**
 //  * @brief OLED线程开启
@@ -58,12 +55,11 @@ void Upper_Debug_Task(void *argument)
 //     OLED_Clear(); //先清屏
 //     osDelay(100);
 //     for (;;) {
-//         OLED_ShowNum(5, 1, distance_aver[0], 10, 16);
+//         //OLED_ShowNum(5, 1, distance_aver[0], 10, 16);
 //         //OLED_ShowNum(25, 1, distance_aver[2], 10, 16);
-//         OLED_ShowNum(45, 2, distance_aver[1], 10, 16);
+//         //OLED_ShowNum(45, 2, distance_aver[1], 10, 16);
 //         //OLED_ShowNum(65, 1, distance_aver[3], 10, 16);
 //         // OLED_ShowNum(85, 1, distance_aver[4], 10, 16);
-
 //        // OLED_ShowNum(5, 4, (int)Uart_State , 5, 16);
 //         //OLED_ShowNum(80,4, (int)receive_buffer[23], 5, 16);
 

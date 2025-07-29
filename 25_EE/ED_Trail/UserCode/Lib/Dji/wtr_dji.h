@@ -10,19 +10,14 @@ typedef struct {
     float KD;        // PID参数D
     float fdb;       // PID反馈值
     float ref;       // PID目标值
-    float cur_error; // 当前误差 
+    float cur_error; // 当前误差
     float error[2];  // 前两次误差
     float output;    // 输出值
     float outputMax; // 最大输出值的绝对值
     float outputMin; // 最小输出值的绝对值用于防抖
 
+    float integral;//add by zyt
 } PID_t;
-
-// 定义串级PID参数结构体(没用上捏)
-typedef struct {
-    PID_t speedPID;
-    PID_t posPID;
-} C_PID_t;
 
 typedef enum {
     M3508 = 0,
@@ -56,7 +51,6 @@ typedef __IO struct {
 
     PID_t speedPID;
     PID_t posPID;
-
 } DJI_t;
 
 extern DJI_t hDJI[8];

@@ -1,10 +1,10 @@
 /*
  * @Author: szf
  * @Date: 2023-02-22 11:59:22
- * @LastEditTime: 2023-02-22 11:59:44
- * @LastEditors: szf
+ * @LastEditTime: 2024-04-16 14:20:28
+ * @LastEditors: labbbbbbbbb 
  * @brief 
- * @FilePath \ER\Usercode\user_src\wtr_can.c
+ * @FilePath: \Upper_trial01\UserCode\Lib\Can\wtr_can.c
  * @WeChat:szf13373959031
  */
 /*过滤器配置，can的fifo0接收*/
@@ -59,7 +59,7 @@ void CanDataDecode(CAN_RxHeaderTypeDef RxHeader){
   
 }
 
-
+// CAN中断回调函数，初始化在Servo.c  Core_xy_Motor_init()里面
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
     CAN_RxHeaderTypeDef   RxHeader;
     if( hcan->Instance == hcan1.Instance ){
